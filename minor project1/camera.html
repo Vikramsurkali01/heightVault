@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0" />
+  <title>HeightVault — Height Detector</title>
+  <style>
+    :root { --card: rgba(255,255,255,0.95); }
+    html,body { height:100%; margin:0; font-family: system-ui, Arial; background:linear-gradient(135deg,#74ebd5,#acb6e5); }
+    .wrap { max-width:980px; margin:0 auto; padding:12px; display:flex; flex-direction:column; height:100%; }
+    header { display:flex; justify-content:space-between; align-items:center; padding:8px 0; }
+    header h1 { margin:0; font-size:1.05rem; color:#222; }
+    .stage { flex:1; display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; }
+    .camera-card, .controls { background:var(--card); border-radius:12px; padding:12px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+    .camera-card { flex:1 1 420px; min-width:300px; max-width:640px; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+    video#video { width:100%; height:100%; object-fit:cover; transform: scaleX(-1); } /* mirrored for front camera */
+    canvas#overlay { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:auto; } /* pointer events allowed for refinement clicks */
+    .controls { width:320px; min-height:220px; display:flex; flex-direction:column; gap:10px; }
+    label { font-size:0.9rem; color:#333; display:block; margin-bottom:6px; }
+    input[type="number"], select, button { width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:1rem; box-sizing:border-box; }
+    .readout { font-weight:700; font-size:1.4rem; color:#111; text-align:center; padding:8px 6px; background:#fff3; border-radius:8px; }
+    .small { font-size:0.85rem; color:#444; }
+    .row { display:flex; gap:8px; }
+    .half { flex:1; }
+    .history-list { max-height:140px; overflow:auto; padding:6px; border-radius:8px; background:#fafafa; border:1px solid #eee; }
+    .history-item { padding:6px 8px; border-bottom:1px solid #eee; font-size:0.95rem; display:flex; justify-content:space-between; }
+    footer { text-align:center; padding:8px; color:#333; font-size:0.85rem; }
+    .notice { font-size:0.85rem; color:#333; }
+    .btn-ghost { background:transparent; border:1px solid #ccc; padding:8px; border-radius:8px; cursor:pointer; }
+    @media (max-width:720px) {
+      .stage { flex-direction:column-reverse; }
+      video#video { transform:none; } /* on phones maybe use back camera */
+      .controls { width:100%; }
+    }
+    /* small marker style for refinement points */
+    .marker {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      margin-left: -7px;
+      margin-top: -7px;
+      border-radius: 50%;
+      background: rgba(255,80,80,0.95);
+      border: 2px solid white;
+      pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>HeightVault — Height Detector</h1>
+      <div>
+        <button id="switchCamBtn" class="btn-ghost">🔁 Switch Camera</button>
+      </div>
+    </header>
+
+    <div class="stage">
+      <div class="camera-card" id="cameraCard">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="overlay"></canvas>
+        <!-- markers for refinement (added dynamically) -->
+      </div>
+
+      <div class="controls">
+        <div>
+          <label>Calibration method</label>
+          <select id="calibMode">
+            <option value="self">Enter known own height (recommended)</option>
+            <option value="object">Refine by tapping top & bottom of a known object in view</option>
+            <option value="none">No calibration — approximate</option>
+          </select>
+        </div>
+
+        <div id="calibInputs" class="small">
+          <label>Known height (cm)</label>
+          <div class="row">
+            <input id="knownHeight" type="number" placeholder="e.g. 170" />
+            <button id="calibBtn" class="btn-ghost">Calibrate</button>
+          </div>
+          <div class="notice">Or choose "Refine by object" and tap top & bottom points on video to compute scale.</div>
+        </div>
+
+        <div>
+          <div class="readout" id="readout">— cm</div>
+          <div class="small" id="status">Waiting for person...</div>
+        </div>
+
+        <div class="row">
+          <button id="measureBtn">📏 Measure Now</button>
+          <button id="saveBtn">💾 Save</button>
+        </div>
+
+        <div>
+          <label>History</label>
+          <div class="history-list" id="historyList"></div>
+        </div>
+
+        <div class="small">
+          <button id="refineToggle" class="btn-ghost">Start object refine (tap in video)</button>
+        </div>
+
+      </div>
+    </div>
+
+    <footer>
+      Tip: stand straight and ensure whole body is visible. Calibrate with a known height for best results.
+    </footer>
+  </div>
+
+  <!-- MediaPipe Pose (keeps original highly mobile-friendly model) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"></script>
+
+  <script>
+  // ---------- elements & state ----------
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('overlay');
+  const cameraCard = document.getElementById('cameraCard');
+  const ctx = canvas.getContext('2d');
+  const readout = document.getElementById('readout');
+  const status = document.getElementById('status');
+  const calibModeEl = document.getElementById('calibMode');
+  const knownHeightEl = document.getElementById('knownHeight');
+  const calibBtn = document.getElementById('calibBtn');
+  const measureBtn = document.getElementById('measureBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const historyList = document.getElementById('historyList');
+  const refineToggle = document.getElementById('refineToggle');
+  const switchCamBtn = document.getElementById('switchCamBtn');
+
+  let camera = null;
+  let currentFacing = 'user'; // 'environment' for back camera
+  let lastPixelHeight = null;
+  let scaleCmPerPixel = parseFloat(localStorage.getItem('hv_scale')) || null; // cm per pixel
+  let smoothing = 0.85;
+  let refineMode = false;
+  let refinePoints = []; // stores clicked [ {x,y} ] for object refine
+
+  // load history
+  function loadHistory(){
+    const hist = JSON.parse(localStorage.getItem('hv_history') || '[]');
+    if (!hist.length) {
+      historyList.innerHTML = '<div class="history-item">No records yet</div>';
+      return;
+    }
+    historyList.innerHTML = hist.map(h => {
+      return `<div class="history-item"><div>${h.time}</div><div>${h.cm} cm | ${h.ftin}</div></div>`;
+    }).join('');
+  }
+  loadHistory();
+
+  // ---------- MediaPipe Pose setup ----------
+  const pose = new Pose({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`
+  });
+  pose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+  pose.onResults(onPoseResults);
+
+  async function startCamera() {
+    if (camera) {
+      try { camera.stop(); } catch(e) {}
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio:false,
+        video: { facingMode: currentFacing === 'user' ? 'user' : 'environment', width:{ideal:1280}, height:{ideal:720} }
+      });
+      video.srcObject = stream;
+      await video.play();
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      camera = new Camera(video, {
+        onFrame: async () => { await pose.send({image: video}); },
+        width: video.videoWidth,
+        height: video.videoHeight
+      });
+      camera.start();
+      status.textContent = 'Camera started — detecting...';
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Camera error: ' + (err.message || err);
+    }
+  }
+  startCamera();
+
+  // ---------- pose results ----------
+  function onPoseResults(results) {
+    // clear canvas
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if (!results.poseLandmarks) {
+      status.textContent = 'No person detected';
+      return;
+    }
+    // draw landmarks
+    drawLandmarks(ctx, results.poseLandmarks, canvas.width, canvas.height);
+
+    // compute top and bottom y
+    let minY = Infinity, maxY = -Infinity;
+    for (const lm of results.poseLandmarks) {
+      if (lm.visibility && lm.visibility < 0.3) continue;
+      const y = lm.y * canvas.height;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    if (minY === Infinity || maxY === -Infinity) {
+      status.textContent = 'Person not fully detected';
+      return;
+    }
+    const pixelHeight = maxY - minY;
+    if (lastPixelHeight == null) lastPixelHeight = pixelHeight;
+    lastPixelHeight = lastPixelHeight * smoothing + pixelHeight * (1 - smoothing);
+
+    // show rectangle
+    ctx.strokeStyle = 'rgba(10,120,200,0.9)';
+    ctx.lineWidth = Math.max(2, canvas.width * 0.002);
+    ctx.strokeRect(10, minY, canvas.width - 20, pixelHeight);
+
+    // show readout
+    if (scaleCmPerPixel) {
+      const cm = lastPixelHeight * scaleCmPerPixel;
+      readout.textContent = cm.toFixed(1) + ' cm';
+      status.textContent = 'Live measurement';
+    } else {
+      readout.textContent = 'Not calibrated';
+      status.textContent = 'Calibrate for accurate measurement';
+    }
+  }
+
+  function drawLandmarks(ctx, landmarks, w, h) {
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    for (const lm of landmarks) {
+      const x = lm.x * w, y = lm.y * h;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(1, w*0.008), 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.stroke();
+    }
+  }
+
+  // ---------- per-measurement calibration (direct input) ----------
+  calibBtn.addEventListener('click', () => {
+    const val = parseFloat(knownHeightEl.value);
+    if (!val || val <= 20) { alert('Enter realistic height in cm (e.g. 170)'); return; }
+    if (!lastPixelHeight) { alert('Make sure person is visible and wait a moment'); return; }
+    scaleCmPerPixel = val / lastPixelHeight;
+    localStorage.setItem('hv_scale', scaleCmPerPixel.toString());
+    alert('Calibration saved: ' + scaleCmPerPixel.toFixed(6) + ' cm/pixel');
+    readout.textContent = (lastPixelHeight * scaleCmPerPixel).toFixed(1) + ' cm';
+  });
+
+  // ---------- object refine by tapping two points ----------
+  refineToggle.addEventListener('click', () => {
+    refineMode = !refineMode;
+    refinePoints = [];
+    refineToggle.textContent = refineMode ? 'Tap top and bottom now (2 points)' : 'Start object refine (tap in video)';
+  });
+
+  // Map click on canvas to actual pixel coords, add markers, compute scale if two points
+  canvas.addEventListener('click', (ev) => {
+    if (!refineMode) return;
+    // compute element-relative coords
+    const rect = canvas.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
+    refinePoints.push({x,y});
+    drawRefineMarker(x, y);
+    if (refinePoints.length === 2) {
+      // ask for known real height
+      const known = parseFloat(prompt('Enter the real height (cm) of the object you tapped (e.g. 200):'));
+      if (!known || known <= 0) { alert('Invalid height'); refinePoints = []; removeRefineMarkers(); refineMode=false; refineToggle.textContent='Start object refine (tap in video)'; return; }
+      const dy = Math.abs(refinePoints[0].y - refinePoints[1].y);
+      if (dy < 5) { alert('Points too close — try again'); refinePoints = []; removeRefineMarkers(); refineMode=false; refineToggle.textContent='Start object refine (tap in video)'; return; }
+      scaleCmPerPixel = known / dy;
+      localStorage.setItem('hv_scale', scaleCmPerPixel.toString());
+      alert('Refinement saved. scale = ' + scaleCmPerPixel.toFixed(6) + ' cm/pixel');
+      refinePoints = []; removeRefineMarkers(); refineMode=false; refineToggle.textContent='Start object refine (tap in video)';
+    }
+  });
+
+  function drawRefineMarker(x, y) {
+    // draw small circle on overlay canvas (temporary)
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(255,80,80,0.95)';
+    ctx.arc(x, y, 8, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function removeRefineMarkers() {
+    // simple approach: allow next frame to redraw landmarks (we clear ctx at each frame). Do nothing else.
+  }
+
+  // ---------- measurement & save ----------
+  measureBtn.addEventListener('click', () => {
+    if (!lastPixelHeight) { alert('No person detected'); return; }
+    let cm;
+    if (scaleCmPerPixel) cm = lastPixelHeight * scaleCmPerPixel;
+    else cm = lastPixelHeight * 0.35; // rough fallback
+    readout.textContent = cm.toFixed(1) + ' cm (' + cmToFeetInches(cm) + ')';
+    status.textContent = 'Measurement taken';
+  });
+
+  saveBtn.addEventListener('click', () => {
+    if (!lastPixelHeight) { alert('No measurement to save'); return; }
+    const cm = scaleCmPerPixel ? lastPixelHeight * scaleCmPerPixel : lastPixelHeight * 0.35;
+    const ftin = cmToFeetInches(cm);
+    const hist = JSON.parse(localStorage.getItem('hv_history') || '[]');
+    hist.unshift({ time: new Date().toLocaleString(), cm: cm.toFixed(1), ftin });
+    if (hist.length > 100) hist.pop();
+    localStorage.setItem('hv_history', JSON.stringify(hist));
+    loadHistory();
+    alert('Saved to history');
+  });
+
+  function cmToFeetInches(cmVal){
+    const inches = cmVal / 2.54;
+    const feet = Math.floor(inches / 12);
+    const inchRem = Math.round(inches - feet*12);
+    return `${feet}ft ${inchRem}in`;
+  }
+
+  // ---------- camera switch ----------
+  switchCamBtn.addEventListener('click', async () => {
+    currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+    if (camera) camera.stop();
+    const tracks = video.srcObject && video.srcObject.getTracks();
+    if (tracks) tracks.forEach(t => t.stop());
+    await startCamera();
+  });
+
+  // ---------- init from storage ----------
+  (function initFromStorage(){
+    const saved = parseFloat(localStorage.getItem('hv_scale'));
+    if (saved) {
+      scaleCmPerPixel = saved;
+      readout.textContent = 'Calibrated';
+    }
+    loadHistory();
+  })();
+
+  // ---------- cleanup ----------
+  window.addEventListener('beforeunload', () => {
+    if (camera) try { camera.stop(); } catch(e){}
+    const tracks = video.srcObject && video.srcObject.getTracks();
+    if (tracks) tracks.forEach(t => t.stop());
+  });
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HeightVault | Home</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Poppins", sans-serif;
+      background: linear-gradient(135deg, #74ebd5, #acb6e5);
+      color: #333;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+/* Navbar */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 45px;
+  
+  /* Modern gradient */
+  background: linear-gradient(90deg, #1f1c2c, #928dab);
+  
+  /* Glass + shadow */
+  backdrop-filter: blur(10px);
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+nav .logo {
+  font-size: 1.8em;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #fff;
+}
+
+nav ul {
+  list-style: none;
+  display: flex;
+  gap: 30px;
+  margin: 0;
+}
+
+nav ul li a {
+  color: #f1f1f1;
+  text-decoration: none;
+  font-size: 1.05em;
+  font-weight: 500;
+  padding: 6px 10px;
+  transition: 0.3s ease;
+  position: relative;
+}
+
+/* Hover under-line animation */
+nav ul li a::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 0%;
+  height: 2px;
+  background-color: #74ebd5;
+  transition: width 0.3s ease;
+}
+
+nav ul li a:hover::after {
+  width: 100%;
+}
+
+nav ul li a:hover {
+  color: #74ebd5;
+}
+
+
+    /* Main Cards */
+    .main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 50px;
+      text-align: center;
+      padding: 30px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+      padding: 40px 30px;
+      width: 320px;
+      transition: 0.4s ease;
+      transform: scale(1);
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin-bottom: 15px;
+      font-size: 1.8em;
+      color: #222;
+    }
+
+    p {
+      font-size: 1em;
+      color: #555;
+      margin-bottom: 25px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 1.1em;
+      border: none;
+      background: linear-gradient(90deg, #333, #555);
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: linear-gradient(90deg, #000, #333);
+    }
+
+    footer {
+      background: #222;
+      color: #ccc;
+      text-align: center;
+      padding: 10px 0;
+      font-size: 0.9em;
+    }
+     .profile-container {
+    position: fixed;
+    bottom: 80px;
+    right: 25px;
+    z-index: 1000;
+  }
+
+  .profile-btn {
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 55px;
+    height: 55px;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  }
+
+  .profile-dropdown {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    display: none;
+    width: 220px;
+    padding: 10px;
+  }
+
+  .profile-dropdown.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .profile-dropdown h4 {
+    margin: 5px 0;
+    color: #333;
+  }
+
+  .profile-dropdown a {
+    display: block;
+    padding: 6px;
+    color: #007BFF;
+    text-decoration: none;
+    font-size: 0.9em;
+  }
+
+  .profile-dropdown a:hover {
+    text-decoration: underline;
+  }
+
+  @keyframes fadeIn {
+    from {opacity: 0; transform: translateY(10px);}
+    to {opacity: 1; transform: translateY(0);}
+  }
+  
+  .profile-container {
+    position: fixed;
+    bottom: 80px;
+    right: 25px;
+    z-index: 1000;
+  }
+
+  .profile-btn {
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 55px;
+    height: 55px;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  }
+
+  .profile-dropdown {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    display: none;
+    width: 220px;
+    padding: 10px;
+  }
+
+  .profile-dropdown.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .profile-dropdown h4 {
+    margin: 5px 0;
+    color: #333;
+  }
+
+  .profile-dropdown a {
+    display: block;
+    padding: 6px;
+    color: #007BFF;
+    text-decoration: none;
+    font-size: 0.9em;
+  }
+
+  .profile-dropdown a:hover {
+    text-decoration: underline;
+  }
+
+  @keyframes fadeIn {
+    from {opacity: 0; transform: translateY(10px);}
+    to {opacity: 1; transform: translateY(0);}
+  }
+
+  /* Theme change after login */
+  body.logged-in {
+    background: linear-gradient(to right, #89f7fe, #66a6ff);
+    transition: background 1s ease;
+  }
+</style>
+
+</head>
+<body>
+  <nav>
+    <div class="logo">HeightVault</div>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="camera.html">Track Height</a></li>
+      <li><a href="bmi.html">BMI Calculator</a></li>
+      <li><a href="auth.html">Login / Sign Up</a></li>
+    </ul>
+  </nav>
+
+  <div class="main">
+    <!-- Height Detector -->
+    <div class="card">
+      <h1>Height Detector</h1>
+      <p>Measure your height accurately using your camera in real time.</p>
+      <button onclick="window.location.href='camera.html'">📷 Open Height Tracker</button>
+    </div>
+
+    <!-- BMI Calculator -->
+    <div class="card">
+      <h1>BMI Calculator</h1>
+      <p>Check your Body Mass Index visually with animated feedback.</p>
+      <button onclick="window.location.href='bmi.html'">⚖️ Open BMI Calculator</button>
+    </div>
+  </div>
+  <div class="profile-container" id="profileContainer" style="display:none;">
+  <button class="profile-btn" onclick="toggleProfile()">👤</button>
+  <div class="profile-dropdown" id="profileDropdown">
+    <h4 id="userNameDisplay"></h4>
+    <a href="bmi-history.html">📊 BMI History</a>
+    <a href="height-history.html">📏 Height Detection History</a>
+    <hr>
+    <a href="#" onclick="logout()">🚪 Logout</a>
+  </div>
+</div>
+<!-- Profile Dropdown -->
+<div class="profile-container" id="profileContainer" style="display:none;">
+  <button class="profile-btn" onclick="toggleProfile()">👤</button>
+  <div class="profile-dropdown" id="profileDropdown">
+    <h4 id="userNameDisplay"></h4>
+    <a href="bmi-history.html">📊 BMI History</a>
+    <a href="height-history.html">📏 Height Detection History</a>
+    <hr>
+    <a href="#" onclick="logout()">🚪 Logout</a>
+  </div>
+</div>
+
+
+<!-- Include global auth script -->
+<script src="auth.js"></script>
+
+  <footer>
+    © 2025 HeightVault | Track your growth smartly.
+  </footer>
+ 
+<script>
+  // Toggle Profile Dropdown
+  function toggleProfile() {
+    document.getElementById('profileDropdown').classList.toggle('show');
+  }
+
+  // Update UI according to login state
+  function updateLoginState() {
+    const user = localStorage.getItem('userEmail');
+    const profile = document.getElementById('profileContainer');
+    const userNameDisplay = document.getElementById('userNameDisplay');
+
+    if (user) {
+      // Logged in
+      profile.style.display = "block";
+      userNameDisplay.textContent = `👤 Logged in as ${user}`;
+      document.body.classList.add('logged-in');
+    } else {
+      // Not logged in (hide profile, keep rest same)
+      profile.style.display = "none";
+      document.body.classList.remove('logged-in');
+    }
+  }
+
+  // Simulate user login (for demo or auth.html redirect)
+  function loginUser(email) {
+    localStorage.setItem('userEmail', email);
+    updateLoginState();
+  }
+
+  // Logout user (no reload)
+  function logout() {
+    localStorage.removeItem('userEmail');
+    updateLoginState();
+    alert("Logged out successfully!");
+  }
+
+  // Run when page loads
+  window.addEventListener('DOMContentLoaded', () => {
+    updateLoginState();
+  });
+</script>
+
+
+</body>
+</html>
